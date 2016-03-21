@@ -20,7 +20,12 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.Hashtable;
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
@@ -30,9 +35,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     EditText latInput;
     EditText lngInput;
     Button findButton;
-    String newLocationTitle;
-    Boolean newInput;
-    Hashtable<String, LatLng> myMarkers;
+    LatLng newLocation;
+    Boolean newInput = false;
+    Hashtable<String, LatLng> myMarkers = new Hashtable<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,6 +48,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
+        // Try to get data from "AllLists" and if this is not possible, create an example
+        try {
+            FileInputStream fis = openFileInput("AllLists");
+            ObjectInputStream ois = new ObjectInputStream(fis);
+            myMarkers = (Hashtable<String, LatLng>) ois.readObject();
+            ois.close();
+        } catch (Exception e) {
+            LatLng amsterdam = new LatLng(52, 4);
+            myMarkers.put("Marker in Amsterdam", amsterdam);
+        }
 
 
         // Sets up the location find Button with the EditTexts
@@ -55,13 +70,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 try {
                     Double latString = Double.parseDouble(latInput.getText().toString());
                     Double lngString = Double.parseDouble(lngInput.getText().toString());
-                    LatLng newLocation = new LatLng(latString, lngString);
-                    if (promptUserInput()) {
-                        changeLocation(newLocation, "newMarker");
-                    } else {
-                        Toast.makeText(getApplicationContext(),
-                                "No location input", Toast.LENGTH_LONG).show();
-                    }
+                    newLocation = new LatLng(latString, lngString);
+                    promptUserInput();
                     latInput.setText("");
                     lngInput.setText("");
                 } catch (final NumberFormatException e) {
@@ -74,8 +84,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
 
-
-
+        // write to a file
+        try {
+            FileOutputStream fos = openFileOutput("Allmarkers", MODE_PRIVATE);
+            ObjectOutputStream oos = new ObjectOutputStream(fos);
+            oos.writeObject(myMarkers);
+            oos.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -85,15 +102,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
 
-        // Add a marker in Sydney and move the camera
-        LatLng amsterdam = new LatLng(52, 4);
-        mMap.addMarker(new MarkerOptions().position(amsterdam).title("Marker in Amsterdam"));
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(amsterdam));
+        LatLng location = new LatLng(52, 4);
+        // Add all markers and move to first location
+        Enumeration<String> keys = myMarkers.keys();
+        while (keys.hasMoreElements()) {
+            String locationName = keys.nextElement();
+            location = myMarkers.get(locationName);
+            mMap.addMarker(new MarkerOptions().position(location).title(locationName));
+        }
+        mMap.moveCamera(CameraUpdateFactory.newLatLng(location));
     }
 
     public void changeLocation(LatLng newMarker, String title) {
         mMap.addMarker(new MarkerOptions().position(newMarker).title(title));
         CameraUpdate yourLocation = CameraUpdateFactory.newLatLngZoom(newMarker, 12);
+        myMarkers.put(title, newMarker);
         mMap.animateCamera(yourLocation);
     }
 
@@ -111,7 +134,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         builder.show();
     }
 
-    private Boolean promptUserInput() {
+    private void promptUserInput() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Name your list:");
 
@@ -126,8 +149,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                newLocationTitle = input.getText().toString();
                 newInput = true;
+                String newLocationTitle = input.getText().toString();
+                changeLocation(newLocation, newLocationTitle);
             }
         });
 
@@ -141,6 +165,5 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             }
         });
         builder.show();
-        return newInput;
     }
 }
