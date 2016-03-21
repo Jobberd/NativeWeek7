@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Mapplication</string>
+    <string name="title_activity_maps">Map</string>
+    <string name="findButtonText">find</string>
+    <string name="longitudeText">Longitude:</string>
+    <string name="latitudeText">Latitude:</string>
+    <string name="titleText">What location do you wanna find?</string>
+</resources>
